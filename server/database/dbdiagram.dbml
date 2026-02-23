@@ -1,0 +1,493 @@
+// AI-RE Database Schema - 4NF
+// Paste this into https://dbdiagram.io
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+Enum billing_type {
+  flat_fee
+  commission
+  subscription
+}
+
+Enum finance_type {
+  cash
+  pre_approved
+  subject_to_finance
+}
+
+Enum inspection_type {
+  open_home
+  private
+  virtual
+}
+
+Enum inspection_status {
+  scheduled
+  completed
+  cancelled
+}
+
+Enum document_status {
+  pending
+  approved
+  rejected
+}
+
+Enum payment_method {
+  card
+  bank_transfer
+  paypal
+}
+
+Enum transaction_status {
+  pending
+  completed
+  failed
+  refunded
+}
+
+// ==========================================
+// REFERENCE TABLES
+// ==========================================
+
+Table roles {
+  id int [pk, increment]
+  name varchar(50) [unique, not null]
+  description varchar(255)
+  created_at timestamp
+}
+
+Table states {
+  id int [pk, increment]
+  code varchar(3) [unique, not null]
+  name varchar(50) [not null]
+  created_at timestamp
+}
+
+Table suburbs {
+  id int [pk, increment]
+  name varchar(100) [not null]
+  postcode varchar(4) [not null]
+  state_id int [not null, ref: > states.id]
+  latitude decimal(10,8)
+  longitude decimal(11,8)
+  created_at timestamp
+
+  indexes {
+    (name, postcode, state_id) [unique]
+  }
+}
+
+Table property_types {
+  id int [pk, increment]
+  name varchar(50) [unique, not null]
+  description varchar(255)
+  created_at timestamp
+}
+
+Table property_statuses {
+  id int [pk, increment]
+  name varchar(50) [unique, not null]
+  description varchar(255)
+  display_color varchar(7)
+  created_at timestamp
+}
+
+Table features {
+  id int [pk, increment]
+  name varchar(100) [unique, not null]
+  category varchar(50)
+  icon varchar(50)
+  created_at timestamp
+}
+
+Table offer_statuses {
+  id int [pk, increment]
+  name varchar(50) [unique, not null]
+  description varchar(255)
+  created_at timestamp
+}
+
+Table document_types {
+  id int [pk, increment]
+  name varchar(100) [unique, not null]
+  description varchar(255)
+  required_for_listing boolean [default: false]
+  created_at timestamp
+}
+
+Table billing_plans {
+  id int [pk, increment]
+  name varchar(100) [unique, not null]
+  description text
+  price decimal(10,2) [not null]
+  billing_type billing_type [not null]
+  commission_rate decimal(5,2)
+  is_active boolean [default: true]
+  created_at timestamp
+}
+
+// ==========================================
+// CORE TABLES
+// ==========================================
+
+Table users {
+  id int [pk, increment]
+  email varchar(255) [unique, not null]
+  password_hash varchar(255) [not null]
+  first_name varchar(100) [not null]
+  last_name varchar(100) [not null]
+  phone varchar(20)
+  avatar_url varchar(500)
+  email_verified boolean [default: false]
+  email_verified_at timestamp
+  is_active boolean [default: true]
+  last_login_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table user_roles {
+  id int [pk, increment]
+  user_id int [not null, ref: > users.id]
+  role_id int [not null, ref: > roles.id]
+  assigned_at timestamp
+  assigned_by int [ref: > users.id]
+
+  indexes {
+    (user_id, role_id) [unique]
+  }
+}
+
+Table user_sessions {
+  id int [pk, increment]
+  user_id int [not null, ref: > users.id]
+  token_hash varchar(255) [not null]
+  ip_address varchar(45)
+  user_agent varchar(500)
+  expires_at timestamp [not null]
+  created_at timestamp
+}
+
+Table properties {
+  id int [pk, increment]
+  seller_id int [not null, ref: > users.id]
+  street_address varchar(255) [not null]
+  unit_number varchar(20)
+  suburb_id int [not null, ref: > suburbs.id]
+  property_type_id int [not null, ref: > property_types.id]
+  status_id int [not null, ref: > property_statuses.id, default: 1]
+  bedrooms int [not null, default: 0]
+  bathrooms int [not null, default: 0]
+  car_spaces int [not null, default: 0]
+  land_size int
+  building_size int
+  year_built int
+  price decimal(12,2)
+  price_display varchar(100)
+  is_price_hidden boolean [default: false]
+  ai_valuation_low decimal(12,2)
+  ai_valuation_mid decimal(12,2)
+  ai_valuation_high decimal(12,2)
+  ai_demand_score decimal(3,1)
+  ai_valuation_updated_at timestamp
+  headline varchar(255)
+  description text
+  views_count int [default: 0]
+  enquiries_count int [default: 0]
+  saves_count int [default: 0]
+  billing_plan_id int [ref: > billing_plans.id]
+  listed_at timestamp
+  expires_at timestamp
+  sold_at timestamp
+  sold_price decimal(12,2)
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table property_images {
+  id int [pk, increment]
+  property_id int [not null, ref: > properties.id]
+  url varchar(500) [not null]
+  thumbnail_url varchar(500)
+  alt_text varchar(255)
+  display_order int [default: 0]
+  is_primary boolean [default: false]
+  uploaded_at timestamp
+}
+
+Table property_features {
+  id int [pk, increment]
+  property_id int [not null, ref: > properties.id]
+  feature_id int [not null, ref: > features.id]
+
+  indexes {
+    (property_id, feature_id) [unique]
+  }
+}
+
+Table saved_properties {
+  id int [pk, increment]
+  user_id int [not null, ref: > users.id]
+  property_id int [not null, ref: > properties.id]
+  saved_at timestamp
+  notes text
+
+  indexes {
+    (user_id, property_id) [unique]
+  }
+}
+
+// ==========================================
+// OFFERS TABLES
+// ==========================================
+
+Table offers {
+  id int [pk, increment]
+  property_id int [not null, ref: > properties.id]
+  buyer_id int [not null, ref: > users.id]
+  offer_amount decimal(12,2) [not null]
+  deposit_amount decimal(12,2)
+  finance_type finance_type [not null]
+  finance_amount decimal(12,2)
+  finance_lender varchar(100)
+  settlement_days int [default: 30]
+  proposed_settlement_date date
+  status_id int [not null, ref: > offer_statuses.id, default: 1]
+  is_counter_offer boolean [default: false]
+  parent_offer_id int [ref: > offers.id]
+  counter_amount decimal(12,2)
+  ai_confidence_score decimal(3,1)
+  submitted_at timestamp
+  viewed_at timestamp
+  responded_at timestamp
+  expires_at timestamp
+}
+
+Table offer_conditions {
+  id int [pk, increment]
+  offer_id int [not null, ref: > offers.id]
+  condition_type varchar(100) [not null]
+  description text
+  is_satisfied boolean [default: false]
+  satisfied_at timestamp
+}
+
+// ==========================================
+// INSPECTIONS TABLES
+// ==========================================
+
+Table inspections {
+  id int [pk, increment]
+  property_id int [not null, ref: > properties.id]
+  inspection_type inspection_type [not null]
+  scheduled_date date [not null]
+  start_time varchar(8) [not null]
+  end_time varchar(8) [not null]
+  max_attendees int
+  notes text
+  status inspection_status [default: 'scheduled']
+  cancelled_reason varchar(255)
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table inspection_attendees {
+  id int [pk, increment]
+  inspection_id int [not null, ref: > inspections.id]
+  user_id int [not null, ref: > users.id]
+  booked_at timestamp
+  attended boolean [default: false]
+  interest_level int
+  comments text
+
+  indexes {
+    (inspection_id, user_id) [unique]
+  }
+}
+
+// ==========================================
+// DOCUMENTS TABLES
+// ==========================================
+
+Table documents {
+  id int [pk, increment]
+  property_id int [not null, ref: > properties.id]
+  document_type_id int [not null, ref: > document_types.id]
+  uploaded_by int [not null, ref: > users.id]
+  file_name varchar(255) [not null]
+  file_url varchar(500) [not null]
+  file_size int
+  mime_type varchar(100)
+  status document_status [default: 'pending']
+  reviewed_by int [ref: > users.id]
+  reviewed_at timestamp
+  rejection_reason varchar(255)
+  uploaded_at timestamp
+}
+
+Table document_shares {
+  id int [pk, increment]
+  document_id int [not null, ref: > documents.id]
+  shared_with_user_id int [not null, ref: > users.id]
+  shared_by_user_id int [not null, ref: > users.id]
+  shared_at timestamp
+  expires_at timestamp
+
+  indexes {
+    (document_id, shared_with_user_id) [unique]
+  }
+}
+
+// ==========================================
+// MESSAGING TABLES
+// ==========================================
+
+Table conversations {
+  id int [pk, increment]
+  property_id int [ref: > properties.id]
+  subject varchar(255)
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table conversation_participants {
+  id int [pk, increment]
+  conversation_id int [not null, ref: > conversations.id]
+  user_id int [not null, ref: > users.id]
+  joined_at timestamp
+  last_read_at timestamp
+  is_muted boolean [default: false]
+
+  indexes {
+    (conversation_id, user_id) [unique]
+  }
+}
+
+Table messages {
+  id int [pk, increment]
+  conversation_id int [not null, ref: > conversations.id]
+  sender_id int [not null, ref: > users.id]
+  content text [not null]
+  is_ai_generated boolean [default: false]
+  is_read boolean [default: false]
+  read_at timestamp
+  sent_at timestamp
+  edited_at timestamp
+}
+
+Table message_attachments {
+  id int [pk, increment]
+  message_id int [not null, ref: > messages.id]
+  file_name varchar(255) [not null]
+  file_url varchar(500) [not null]
+  file_size int
+  mime_type varchar(100)
+  uploaded_at timestamp
+}
+
+// ==========================================
+// BILLING & SYSTEM TABLES
+// ==========================================
+
+Table billing_transactions {
+  id int [pk, increment]
+  user_id int [not null, ref: > users.id]
+  property_id int [ref: > properties.id]
+  billing_plan_id int [not null, ref: > billing_plans.id]
+  amount decimal(10,2) [not null]
+  currency varchar(3) [default: 'AUD']
+  payment_method payment_method [not null]
+  payment_reference varchar(255)
+  status transaction_status [default: 'pending']
+  created_at timestamp
+  completed_at timestamp
+}
+
+Table notifications {
+  id int [pk, increment]
+  user_id int [not null, ref: > users.id]
+  type varchar(50) [not null]
+  title varchar(255) [not null]
+  message text
+  data text
+  action_url varchar(500)
+  is_read boolean [default: false]
+  read_at timestamp
+  created_at timestamp
+}
+
+Table audit_logs {
+  id int [pk, increment]
+  user_id int [ref: > users.id]
+  action varchar(100) [not null]
+  entity_type varchar(50) [not null]
+  entity_id int [not null]
+  old_values text
+  new_values text
+  ip_address varchar(45)
+  user_agent varchar(500)
+  created_at timestamp
+}
+
+// ==========================================
+// TABLE GROUPS
+// ==========================================
+
+TableGroup user_management {
+  users
+  user_roles
+  user_sessions
+  roles
+}
+
+TableGroup property_management {
+  properties
+  property_images
+  property_features
+  property_types
+  property_statuses
+  features
+  saved_properties
+}
+
+TableGroup location {
+  states
+  suburbs
+}
+
+TableGroup offers_system {
+  offers
+  offer_conditions
+  offer_statuses
+}
+
+TableGroup inspections_system {
+  inspections
+  inspection_attendees
+}
+
+TableGroup documents_system {
+  documents
+  document_shares
+  document_types
+}
+
+TableGroup messaging {
+  conversations
+  conversation_participants
+  messages
+  message_attachments
+}
+
+TableGroup billing_system {
+  billing_plans
+  billing_transactions
+}
+
+TableGroup system_logs {
+  notifications
+  audit_logs
+}
