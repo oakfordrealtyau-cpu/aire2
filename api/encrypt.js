@@ -1,5 +1,5 @@
 // api/encrypt.js
-import JSEncrypt from "jsencrypt";
+import forge from "node-forge";
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -11,22 +11,19 @@ export default async function handler(req, res) {
 
   try {
     const { publicKey, payload } = req.body;
-
     if (!publicKey || !payload) {
       return res.status(400).json({ error: "Missing publicKey or payload" });
     }
 
-    const encrypt = new JSEncrypt();
-    encrypt.setPublicKey(publicKey);
+    // Convert PEM to forge public key
+    const pub = forge.pki.publicKeyFromPem(publicKey);
 
-    const encrypted = encrypt.encrypt(JSON.stringify(payload));
-
-    if (!encrypted) {
-      return res.status(500).json({ error: "Encryption failed" });
-    }
+    // Encrypt payload with RSA-OAEP
+    const encrypted = pub.encrypt(JSON.stringify(payload), "RSA-OAEP");
 
     return res.status(200).json({ encrypted });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error("Encrypt function error:", err);
+    return res.status(500).json({ error: "Encryption failed", details: err.message });
   }
 }
