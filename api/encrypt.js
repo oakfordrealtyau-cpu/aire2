@@ -1,19 +1,11 @@
 // api/encrypt.js
-import JSEncrypt from "jsencrypt";
-
 export default async function handler(req, res) {
-  // Handle CORS preflight
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
     const { publicKey, payload } = req.body;
@@ -21,19 +13,20 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing publicKey or payload" });
     }
 
-    const encrypt = new JSEncrypt();
-    encrypt.setPublicKey(publicKey);
+    // Call the external encryption API
+    const apiRes = await fetch("http://54.90.205.243:5000/lndu-encrypt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ publicKey, payload })
+    });
 
-    // Must strip PEM headers and newlines if JSEncrypt fails
-    const cleanKey = publicKey.replace(/-----[A-Z ]+-----|\n/g, "");
-    encrypt.setPublicKey(cleanKey);
+    const data = await apiRes.json();
 
-    const encrypted = encrypt.encrypt(JSON.stringify(payload));
-    if (!encrypted) {
-      return res.status(500).json({ error: "Encryption failed" });
+    if (!data.encrypted) {
+      return res.status(500).json({ error: "External encryption failed" });
     }
 
-    return res.status(200).json({ encrypted });
+    return res.status(200).json({ encrypted: data.encrypted });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
