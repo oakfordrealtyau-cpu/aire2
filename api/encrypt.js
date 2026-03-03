@@ -1,6 +1,11 @@
 // api/encrypt.js
 import forge from "node-forge";
 
+  // Allow requests from anywhere (for testing)
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
 export default async function handler(req, res) {
   // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -28,3 +33,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Encryption failed", details: err.message });
   }
 }
+
