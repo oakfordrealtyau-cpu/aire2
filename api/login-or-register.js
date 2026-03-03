@@ -1,5 +1,5 @@
 // api/login-or-register.js
-import fetch from "node-fetch";
+
 import crypto from "crypto";
 
 const AppSecret = "hg4IwDpf2tvbVdBGc6nwP5x2XGCIlNv8";
@@ -10,21 +10,28 @@ function hmacSha256(message, secret) {
 }
 
 export default async function handler(req, res) {
-  // CORS
+
+  // 🔥 ALWAYS set headers immediately
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === "OPTIONS") return res.status(200).end();
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  // 🔥 Handle preflight immediately and STOP
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
   try {
     const { client_id, encryptedData, request_id, time } = req.body;
+
     if (!client_id || !encryptedData || !request_id || !time) {
       return res.status(400).json({ error: "Missing parameters" });
     }
 
-    // Build signature (HMAC-SHA256)
     const message = `client_id=${client_id}&post_data=${encryptedData}&request_id=${request_id}&time=${time}`;
     const sign = hmacSha256(message, AppSecret);
 
@@ -36,7 +43,6 @@ export default async function handler(req, res) {
       sign,
     };
 
-    // Call original login API
     const apiRes = await fetch(`${BaseApiUrl}/api/v3/openapi/auth/login-or-register`, {
       method: "POST",
       headers: {
@@ -50,9 +56,8 @@ export default async function handler(req, res) {
     const data = await apiRes.json();
 
     return res.status(apiRes.status).json(data);
+
   } catch (err) {
     return res.status(500).json({ error: "Login failed", details: err.message });
   }
-
 }
-
