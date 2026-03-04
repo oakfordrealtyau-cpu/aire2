@@ -33,8 +33,7 @@ export default async function handler(req, res) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Accept-Language": "en",
-          "App-Name": message.AppId || "cldbus"
+          "Accept-Language": "en"
         },
         body: JSON.stringify({ message })
       }
@@ -66,4 +65,5 @@ export default async function handler(req, res) {
       details: error.message
     });
   }
+
 }
